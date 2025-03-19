@@ -28,7 +28,7 @@
 
 **Process**:
 1. For all industry-related queries, FIRST query the knowledge base to retrieve available use cases:
-   - Use tool `aws-kb-retrieval-server` with `knowledgeBaseId` L13JFEDQOI
+   - Use tool `aws-kb-retrieval-server` with `knowledgeBaseId` 6QJ6SANAZI
    - Example query: "[identified industry] use cases AWS"
    
 2. Analyze if the user is asking about:
