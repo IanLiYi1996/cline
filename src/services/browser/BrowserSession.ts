@@ -18,6 +18,14 @@ interface PCRStats {
 	executablePath: string
 }
 
+// Define browser connection info interface
+export interface BrowserConnectionInfo {
+	isConnected: boolean
+	isRemote: boolean
+	host?: string
+	isHeadless: boolean
+}
+
 const DEBUG_PORT = 9222 // Chrome's default debugging port
 
 export class BrowserSession {
@@ -28,6 +36,7 @@ export class BrowserSession {
 	private cachedWebSocketEndpoint?: string
 	private lastConnectionAttempt: number = 0
 	browserSettings: BrowserSettings
+	private isConnectedToRemote: boolean = false
 
 	constructor(context: vscode.ExtensionContext, browserSettings: BrowserSettings) {
 		this.context = context
@@ -37,6 +46,18 @@ export class BrowserSession {
 	// Tests remote browser connection
 	async testConnection(host: string): Promise<{ success: boolean; message: string; endpoint?: string }> {
 		return testBrowserConnection(host)
+	}
+
+	/**
+	 * Get current browser connection information
+	 */
+	getConnectionInfo(): BrowserConnectionInfo {
+		return {
+			isConnected: !!this.browser,
+			isRemote: this.isConnectedToRemote,
+			host: this.isConnectedToRemote ? this.browserSettings.remoteBrowserHost : undefined,
+			isHeadless: this.browserSettings.headless
+		}
 	}
 
 	async getDetectedChromePath(): Promise<{ path: string; isBundled: boolean }> {
@@ -128,6 +149,9 @@ export class BrowserSession {
 			await this.closeBrowser() // this may happen when the model launches a browser again after having used it already before
 		}
 
+		// Reset remote connection status
+		this.isConnectedToRemote = false
+
 		if (this.browserSettings.remoteBrowserEnabled) {
 			console.log(`launch browser called -- remote host mode (headless: ${this.browserSettings.headless})`)
 			try {
@@ -156,6 +180,7 @@ export class BrowserSession {
 			defaultViewport: this.browserSettings.viewport,
 			headless: this.browserSettings.headless,
 		})
+		this.isConnectedToRemote = false
 	}
 
 	async launchRemoteBrowser() {
@@ -191,6 +216,7 @@ export class BrowserSession {
 					defaultViewport: getViewport(),
 				})
 				this.page = await this.browser?.newPage()
+				this.isConnectedToRemote = true
 				return
 			} catch (error) {
 				console.log(`Failed to connect using cached endpoint: ${error}`)
@@ -228,6 +254,7 @@ export class BrowserSession {
 					defaultViewport: getViewport(),
 				})
 				this.page = await this.browser?.newPage()
+				this.isConnectedToRemote = true
 				return
 			} catch (error) {
 				console.log(`Failed to connect to remote browser: ${error}`)
@@ -242,7 +269,7 @@ export class BrowserSession {
 
 	async closeBrowser(): Promise<BrowserActionResult> {
 		if (this.browser || this.page) {
-			if (this.browserSettings.remoteBrowserEnabled && this.browser) {
+			if (this.isConnectedToRemote && this.browser) {
 				await this.browser.disconnect().catch(() => {})
 				console.log("disconnected from remote browser...")
 			} else {
@@ -253,6 +280,7 @@ export class BrowserSession {
 			this.browser = undefined
 			this.page = undefined
 			this.currentMousePosition = undefined
+			this.isConnectedToRemote = false
 		}
 		return {}
 	}
